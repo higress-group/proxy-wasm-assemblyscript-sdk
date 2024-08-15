@@ -1,4 +1,4 @@
-export * from "@kong/proxy-wasm-sdk/assembly/proxy";
+export * from "@higress/proxy-wasm-assemblyscript-sdk/assembly/proxy";
 import {
   RootContext,
   Context,
@@ -8,7 +8,7 @@ import {
   stream_context,
   log,
   LogLevelValues
-} from "@kong/proxy-wasm-sdk/assembly";
+} from "@higress/proxy-wasm-assemblyscript-sdk/assembly";
 class RemoveHeadersRoot extends RootContext {
   createContext(context_id: u32): Context {
     return new RemoveHeader(context_id, this);

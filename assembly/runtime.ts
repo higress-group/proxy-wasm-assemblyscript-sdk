@@ -19,9 +19,9 @@ import { free } from "./malloc";
 }
 
 function CHECK_RESULT(c: imports.WasmResult): void {
-  if (c != WasmResultValues.Ok) {
+  if (c != WasmResultValues.Ok && c != WasmResultValues.NotFound) {
     log(LogLevelValues.critical, c.toString());
-    throw new Error(":(");
+    // throw new Error(":(");
   }
 }
 
@@ -245,10 +245,23 @@ export function get_current_time_nanoseconds(): u64 {
   return nanos.data;
 }
 
-export function get_property(path: string): ArrayBuffer {
+class GetPropertyResult {
+  returnValue: ArrayBuffer
+  status: WasmResultValues
+  constructor(returnValue: ArrayBuffer, status: WasmResultValues) {
+    this.returnValue = returnValue;
+    this.status = status;
+  }
+}
+
+export function get_property(path: string): GetPropertyResult {
   let buffer = String.UTF8.encode(path);
-  CHECK_RESULT(imports.proxy_get_property(changetype<usize>(buffer), buffer.byteLength, globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr()));
-  return globalArrayBufferReference.toArrayBuffer();
+  let result = imports.proxy_get_property(changetype<usize>(buffer), buffer.byteLength, globalArrayBufferReference.bufferPtr(), globalArrayBufferReference.sizePtr());
+  CHECK_RESULT(result);
+  if (result != WasmResultValues.Ok){
+    return new GetPropertyResult(new ArrayBuffer(0), result);
+  }
+  return new GetPropertyResult(globalArrayBufferReference.toArrayBuffer(), result);
 }
 
 export function set_property(path: string, data: ArrayBuffer): WasmResultValues {
@@ -804,14 +817,20 @@ export abstract class BaseContext {
 /**
  * Wrapper around http callbacks. When AS script supports closures, we can refactor \ remove this.
  */
+export type ResponseCallBack = (statusCode: i32, responseHeaders: Headers, responseBody: ArrayBuffer) => void;
+
 export class HttpCallback {
   origin_context: BaseContext;
-  cb: (origin_context: BaseContext, headers: u32, body_size: usize, trailers: u32) => void;
-  constructor(origin_context: BaseContext, cb: (origin_context: BaseContext, headers: u32, body_size: usize, trailers: u32) => void) {
+  cb: (origin_context: BaseContext, headers: u32, body_size: usize, trailers: u32, callback: ResponseCallBack) => void;
+  ResponseCallBack: ResponseCallBack;
+
+  constructor(origin_context: BaseContext, cb: (origin_context: BaseContext, headers: u32, body_size: usize, trailers: u32, callback: ResponseCallBack) => void, ResponseCallBack: ResponseCallBack) {
     this.origin_context = origin_context;
     this.cb = cb;
+    this.ResponseCallBack = ResponseCallBack;
   }
 }
+
 class GrpcCallback {
   ctx: Object;
   cb: (c: Object) => void;
@@ -851,7 +870,7 @@ export class RootContext extends BaseContext {
     for (let i = 0; i < callbacks.length; ++i) {
       // Calling callbacks with no response
       // TODO: return some parameter telling the filter that these requests were canceled.
-      callbacks[i].cb(callbacks[i].origin_context, 0, 0, 0);
+      callbacks[i].cb(callbacks[i].origin_context, 0, 0, 0, callbacks[i].ResponseCallBack);
     }
     let keys = this.http_calls_.keys();
     for (let i = 0; i < keys.length; ++i) {
@@ -920,7 +939,7 @@ export class RootContext extends BaseContext {
    * @param timeout_milliseconds Timeout for the request, in milliseconds.
    * @param cb Callback to be invoked when the request is complete.
    */
-  httpCall(cluster: string, headers: Headers, body: ArrayBuffer, trailers: Headers, timeout_milliseconds: u32, origin_context: BaseContext, cb: (origin_context: BaseContext, headers: u32, body_size: usize, trailers: u32) => void): WasmResultValues {
+  httpCall(cluster: string, headers: Headers, body: ArrayBuffer, trailers: Headers, timeout_milliseconds: u32, origin_context: BaseContext, ResponseCallBack: ResponseCallBack, cb: (origin_context: BaseContext, headers: u32, body_size: usize, trailers: u32, callback: ResponseCallBack) => void): WasmResultValues {
     log(LogLevelValues.debug, "context id: " + this.context_id.toString() + ": httpCall(cluster: " + cluster + ", headers:" + headers.toString() + ", body:" + body.toString() + ", trailers:" + trailers.toString() + ")");
     let buffer = String.UTF8.encode(cluster);
     let header_pairs = serializeHeaders(headers);
@@ -930,7 +949,7 @@ export class RootContext extends BaseContext {
     log(LogLevelValues.debug, "Http call executed with result: " + result.toString());
     if (result == WasmResultValues.Ok) {
       log(LogLevelValues.debug, "set token: " + token.data.toString() + " on " + this.context_id.toString());
-      this.http_calls_.set(token.data, new HttpCallback(origin_context, cb));
+      this.http_calls_.set(token.data, new HttpCallback(origin_context, cb, ResponseCallBack));
     }
     return result;
   }
@@ -945,7 +964,7 @@ export class RootContext extends BaseContext {
       log(LogLevelValues.debug, "onHttpCallResponse: calling callback for context id: " + callback.origin_context.context_id.toString());
       this.http_calls_.delete(token);
       setEffectiveContext(callback.origin_context.context_id);
-      callback.cb(callback.origin_context, headers, body_size, trailers);
+      callback.cb(callback.origin_context, headers, body_size, trailers, callback.ResponseCallBack);
     } else {
       log(LogLevelValues.error, "onHttpCallResponse: Token " + token.toString() + " not found.");
     }
@@ -1036,7 +1055,7 @@ export class Context extends BaseContext {
 }
 
 function get_plugin_root_id(): string {
-  let root_id = get_property("plugin_root_id");
+  let root_id = get_property("plugin_root_id").returnValue;
   if (root_id.byteLength == 0) {
     return "";
   }
@@ -1046,7 +1065,7 @@ function get_plugin_root_id(): string {
 const undefined_context_factory: (context_id: u32) => RootContext = (context_id: u32) => { return new RootContext(0); };
 let root_context_factory: (context_id: u32) => RootContext = undefined_context_factory;
 
-let root_context: RootContext | null;
+export let root_context: RootContext | null;
 let context_map = new Map<u32, Context>();
 
 //create root context if doesn't exist
@@ -1085,7 +1104,10 @@ export function ensureContext(context_id: u32, root_context_id: u32): void {
 }
 
 export function getBaseContext(context_id: u32): BaseContext {
-  return context_map.get(context_id) as BaseContext;
+  if (context_map.has(context_id)) {
+    return context_map.get(context_id) as BaseContext;
+  }
+  return root_context as BaseContext;
 }
 export function getContext(context_id: u32): Context {
   return context_map.get(context_id) as Context;
@@ -1107,4 +1129,8 @@ export function registerRootContext(
   context_factory: (context_id: u32) => RootContext,
   name: string): void {
   root_context_factory = context_factory;
+}
+
+export function setRootContext(ctx: RootContext): void {
+  root_context = ctx;
 }

@@ -13,27 +13,27 @@
     "minimist": ">=1.2.2",
     "typedoc": "^0.16.11"
   },
-  "name": "@kong/proxy-wasm-sdk",
+  "name": "@higress/proxy-wasm-assemblyscript-sdk",
   "description": "Use this SDK to write extensions for the proxy WASM ABI",
-  "version": "0.0.6",
+  "version": "0.0.2",
   "main": "assembly/index.ts",
   "directories": {
     "doc": "docs"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kong/proxy-wasm-assemblyscript-sdk.git"
+    "url": "git+https://github.com/higress-group/proxy-wasm-assemblyscript-sdk.git"
   },
   "keywords": [
     "wasm",
     "proxy"
   ],
-  "author": "Yuval Kohavi",
-  "license": " Apache-2.0",
+  "author": "higress-group",
+  "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/kong/proxy-wasm-assemblyscript-sdk/issues"
+    "url": "https://github.com/higress-group/proxy-wasm-assemblyscript-sdk/issues"
   },
-  "homepage": "https://github.com/kong/proxy-wasm-assemblyscript-sdk",
+  "homepage": "https://github.com/higress-group/proxy-wasm-assemblyscript-sdk",
   "files": [
     "/assembly",
     "package-lock.json",

@@ -24,7 +24,7 @@ the options passed to `asc` compiler:
 }
 ```
 
-Add `"@kong/proxy-wasm-sdk": "0.0.6"` to your dependencies then run `npm install`.
+Add `"@higress/proxy-wasm-assemblyscript-sdk": "0.0.2"` to your dependencies then run `npm install`.
 
 
 ## Hello, World
@@ -32,14 +32,14 @@ Add `"@kong/proxy-wasm-sdk": "0.0.6"` to your dependencies then run `npm install
 Copy this into assembly/index.ts:
 
 ```ts
-export * from "@kong/proxy-wasm-sdk/proxy";
+export * from "@higress/proxy-wasm-assemblyscript-sdk/proxy";
 import {
   RootContext,
   Context,
   registerRootContext,
   FilterHeadersStatusValues,
   stream_context
-} from "@kong/proxy-wasm-sdk";
+} from "@higress/proxy-wasm-assemblyscript-sdk";
 
 class AddHeaderRoot extends RootContext {
   createContext(context_id: u32): Context {

@@ -1,6 +1,6 @@
 
-export * from "@kong/proxy-wasm-sdk/assembly/proxy"; // this exports the required functions for the proxy to interact with us.
-import { RootContext, Context, registerRootContext, FilterHeadersStatusValues, stream_context } from "@kong/proxy-wasm-sdk/assembly";
+export * from "@higress/proxy-wasm-assemblyscript-sdk/assembly/proxy"; // this exports the required functions for the proxy to interact with us.
+import { RootContext, Context, registerRootContext, FilterHeadersStatusValues, stream_context } from "@higress/proxy-wasm-assemblyscript-sdk/assembly";
 
 class AddHeaderRoot extends RootContext {
   createContext(context_id: u32): Context {

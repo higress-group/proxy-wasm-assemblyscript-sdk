@@ -6,7 +6,7 @@
     "test": "node tests"
   },
   "dependencies": {
-    "@kong/proxy-wasm-sdk": "file:../.."
+    "@higress/proxy-wasm-assemblyscript-sdk": "file:../.."
   },
   "devDependencies": {
     "assemblyscript": "^0.25.0"
